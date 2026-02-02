@@ -7,22 +7,33 @@ app.use(express.json());
 const PORT = process.env.PORT || 8080;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-/* ===== ГОЛОВНА СТОРІНКА ===== */
+/**
+ * Головна сторінка (щоб НЕ було Cannot GET /)
+ */
 app.get("/", (req, res) => {
-  res.send(`
-    <h2>Dynasty ChatGPT працює ✅</h2>
-    <p>Використовуй POST /reply</p>
-  `);
+  res.send("Dynasty ChatGPT працює");
 });
 
-/* ===== ОСНОВНИЙ API ===== */
+/**
+ * Основний маршрут для Creatium
+ */
 app.post("/reply", async (req, res) => {
   try {
     const { text } = req.body;
 
     if (!text) {
-      return res.status(400).json({ error: "Немає тексту відгуку" });
+      return res.status(400).json({ error: "Нема тексту відгуку" });
     }
+
+    const prompt = `
+Ти власник весільного салону Dynasty.
+Напиши теплу, професійну, людську відповідь на відгук клієнта.
+Без шаблонів, без AI-стилю.
+Запропонуй поділитись фото або відео з події.
+
+Відгук клієнта:
+"${text}"
+`;
 
     const response = await fetch(
       "https://api.openai.com/v1/chat/completions",
@@ -30,35 +41,29 @@ app.post("/reply", async (req, res) => {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${OPENAI_API_KEY}`,
-          "Content-Type": "application/json",
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
           model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content:
-                "Ти власник весільного салону Dynasty. Пиши теплу, ввічливу відповідь клієнту українською, коротко і щиро.",
-            },
-            {
-              role: "user",
-              content: text,
-            },
-          ],
-        }),
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.7
+        })
       }
     );
 
     const data = await response.json();
 
-    res.json({
-      reply: data.choices[0].message.content,
-    });
-  } catch (err) {
-    res.status(500).json({ error: "Помилка сервера", details: err.message });
+    const answer =
+      data.choices?.[0]?.message?.content || "Не вдалося згенерувати відповідь";
+
+    res.json({ reply: answer });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Помилка сервера" });
   }
 });
 
 app.listen(PORT, () => {
-  console.log("Dynasty ChatGPT server running on port", PORT);
+  console.log(`Server running on port ${PORT}`);
 });
