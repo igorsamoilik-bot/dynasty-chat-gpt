@@ -1,21 +1,18 @@
 import express from "express";
 import fetch from "node-fetch";
-import cors from "cors";
 
 const app = express();
-
-app.use(cors()); // <<< ВАЖЛИВО
 app.use(express.json());
 
 const PORT = process.env.PORT || 8080;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-// тест – перевірка що сервер живий
+/* 🟢 ТЕСТ: головна сторінка */
 app.get("/", (req, res) => {
-  res.send("Dynasty ChatGPT server is running");
+  res.send("Dynasty ChatGPT server is running ✅");
 });
 
-// основний endpoint
+/* 🟢 ОСНОВНИЙ API ДЛЯ CREATIUM */
 app.post("/reply", async (req, res) => {
   try {
     const { text } = req.body;
@@ -36,31 +33,31 @@ app.post("/reply", async (req, res) => {
           {
             role: "system",
             content:
-              "Ти власник весільного салону Dynasty. Відповідай тепло, щиро, по-людськи, без канцеляризму. Наприкінці попроси фото або відео з події."
+              "Ти власник весільного салону Dynasty у Дніпрі. Відповідай тепло, ввічливо, по-людськи, без пафосу. Дякуй клієнту, запрошуй на фото або відео з весілля."
           },
           {
             role: "user",
             content: text
           }
         ],
-        temperature: 0.6
+        temperature: 0.7
       })
     });
 
     const data = await response.json();
 
-    const reply =
+    const answer =
       data.choices?.[0]?.message?.content ||
       "Не вдалося згенерувати відповідь";
 
-    res.json({ reply });
+    res.json({ answer });
 
-  } catch (error) {
-    console.error(error);
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
 app.listen(PORT, () => {
-  console.log("Server running on port", PORT);
+  console.log(`Server running on port ${PORT}`);
 });
