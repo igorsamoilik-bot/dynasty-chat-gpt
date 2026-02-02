@@ -7,7 +7,7 @@ app.use(express.json());
 const PORT = process.env.PORT || 8080;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-/* Головна сторінка (UI) */
+/* UI */
 app.get("/", (req, res) => {
   res.send(`
 <!DOCTYPE html>
@@ -16,39 +16,20 @@ app.get("/", (req, res) => {
 <meta charset="UTF-8">
 <title>Відповідь на відгук — Dynasty</title>
 <style>
-body {
-  font-family: Arial, sans-serif;
-  background:#f7f7f7;
-  padding:30px;
-}
-textarea {
-  width:100%;
-  min-height:120px;
-  margin-bottom:10px;
-}
-button {
-  padding:10px 16px;
-  background:black;
-  color:white;
-  border:none;
-  cursor:pointer;
-}
-#result {
-  margin-top:15px;
-  background:#fff;
-  padding:15px;
-  min-height:80px;
-}
+body { font-family: Arial; padding: 30px; background:#f7f7f7 }
+textarea { width:100%; min-height:120px }
+button { margin-top:10px; padding:10px; background:black; color:white; border:none }
+#result { background:#fff; padding:15px; margin-top:15px }
 </style>
 </head>
 <body>
 
 <h3>Встав відгук клієнта</h3>
-<textarea id="text" placeholder="Встав текст відгуку..."></textarea>
+<textarea id="text"></textarea>
 <button onclick="generate()">Згенерувати відповідь</button>
 
 <h3>Готова відповідь від Dynasty</h3>
-<div id="result">Тут зʼявиться відповідь</div>
+<div id="result">Очікування…</div>
 
 <script>
 async function generate() {
@@ -63,8 +44,8 @@ async function generate() {
       body: JSON.stringify({ text })
     });
 
-    const data = await r.json();
-    result.innerText = data.reply || "Помилка генерації";
+    const d = await r.json();
+    result.innerText = d.reply || d.error || "Помилка генерації";
   } catch (e) {
     result.innerText = "Помилка зʼєднання";
   }
@@ -79,7 +60,13 @@ async function generate() {
 /* API */
 app.post("/reply", async (req, res) => {
   try {
+    if (!OPENAI_API_KEY) {
+      console.error("NO OPENAI KEY");
+      return res.json({ error: "OPENAI_API_KEY не заданий" });
+    }
+
     const { text } = req.body;
+    if (!text) return res.json({ error: "Порожній текст" });
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -88,11 +75,11 @@ app.post("/reply", async (req, res) => {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "gpt-3.5-turbo",
         messages: [
           {
             role: "system",
-            content: "Ти власник весільного салону Dynasty. Напиши теплу, ввічливу відповідь на відгук клієнта українською мовою."
+            content: "Ти власник весільного салону Dynasty. Напиши теплу відповідь українською мовою."
           },
           { role: "user", content: text }
         ],
@@ -101,12 +88,18 @@ app.post("/reply", async (req, res) => {
     });
 
     const data = await response.json();
+    console.log("OPENAI RESPONSE:", JSON.stringify(data, null, 2));
+
+    if (!data.choices) {
+      return res.json({ error: "OpenAI error" });
+    }
+
     res.json({ reply: data.choices[0].message.content });
+
   } catch (e) {
-    res.status(500).json({ error: "OpenAI error" });
+    console.error("SERVER ERROR:", e);
+    res.json({ error: "Server error" });
   }
 });
 
-app.listen(PORT, () => {
-  console.log("Server running on", PORT);
-});
+app.listen(PORT, () => console.log("Server started"));
