@@ -7,48 +7,76 @@ app.use(express.json());
 const PORT = process.env.PORT || 8080;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-// ГОЛОВНА СТОРІНКА (для iframe)
+/* Головна сторінка (UI) */
 app.get("/", (req, res) => {
   res.send(`
 <!DOCTYPE html>
 <html lang="uk">
 <head>
-<meta charset="UTF-8" />
+<meta charset="UTF-8">
 <title>Відповідь на відгук — Dynasty</title>
 <style>
-body { font-family: Arial, sans-serif; padding: 20px; }
-textarea { width:100%; height:120px; margin-bottom:10px; }
-button { padding:10px 20px; font-size:16px; }
+body {
+  font-family: Arial, sans-serif;
+  background:#f7f7f7;
+  padding:30px;
+}
+textarea {
+  width:100%;
+  min-height:120px;
+  margin-bottom:10px;
+}
+button {
+  padding:10px 16px;
+  background:black;
+  color:white;
+  border:none;
+  cursor:pointer;
+}
+#result {
+  margin-top:15px;
+  background:#fff;
+  padding:15px;
+  min-height:80px;
+}
 </style>
 </head>
 <body>
 
-<h2>Встав відгук клієнта</h2>
-<textarea id="input"></textarea>
-<button onclick="send()">Згенерувати відповідь</button>
+<h3>Встав відгук клієнта</h3>
+<textarea id="text" placeholder="Встав текст відгуку..."></textarea>
+<button onclick="generate()">Згенерувати відповідь</button>
 
-<h2>Готова відповідь від Dynasty</h2>
-<textarea id="output"></textarea>
+<h3>Готова відповідь від Dynasty</h3>
+<div id="result">Тут зʼявиться відповідь</div>
 
 <script>
-async function send() {
-  const text = document.getElementById("input").value;
-  const res = await fetch("/reply", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text })
-  });
-  const data = await res.json();
-  document.getElementById("output").value = data.answer || "Помилка";
+async function generate() {
+  const text = document.getElementById("text").value;
+  const result = document.getElementById("result");
+  result.innerText = "Генеруємо...";
+
+  try {
+    const r = await fetch("/reply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text })
+    });
+
+    const data = await r.json();
+    result.innerText = data.reply || "Помилка генерації";
+  } catch (e) {
+    result.innerText = "Помилка зʼєднання";
+  }
 }
 </script>
 
 </body>
 </html>
-`);
+  `);
 });
 
-// API
+/* API */
 app.post("/reply", async (req, res) => {
   try {
     const { text } = req.body;
@@ -64,19 +92,21 @@ app.post("/reply", async (req, res) => {
         messages: [
           {
             role: "system",
-            content: "Ти власник весільного салону Dynasty. Відповідай тепло, щиро, українською, без AI-стилю."
+            content: "Ти власник весільного салону Dynasty. Напиши теплу, ввічливу відповідь на відгук клієнта українською мовою."
           },
           { role: "user", content: text }
-        ]
+        ],
+        temperature: 0.7
       })
     });
 
-    const json = await response.json();
-    res.json({ answer: json.choices[0].message.content });
-
+    const data = await response.json();
+    res.json({ reply: data.choices[0].message.content });
   } catch (e) {
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "OpenAI error" });
   }
 });
 
-app.listen(PORT, () => console.log("Server running"));
+app.listen(PORT, () => {
+  console.log("Server running on", PORT);
+});
